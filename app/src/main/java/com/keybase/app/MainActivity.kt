@@ -158,8 +158,11 @@ class MainActivity : FragmentActivity() {
             val mac = try {
                 if (firstRun) DeviceKey.ensure()
                 DeviceKey.newMac()
+            } catch (e: android.security.keystore.KeyPermanentlyInvalidatedException) {
+                error = "Fingerprints changed, so the vault key was invalidated. Restore from backup."
+                return
             } catch (e: Exception) {
-                error = "Fingerprint key is no longer valid (fingerprints changed). Restore from backup."
+                error = "Fingerprint key error (${e.javaClass.simpleName}: ${e.message?.take(100)})"
                 return
             }
             DeviceKey.authenticate(this, mac) { r ->

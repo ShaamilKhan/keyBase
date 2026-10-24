@@ -34,7 +34,8 @@ object DeviceKey {
         if (ks.containsAlias(ALIAS)) return
         try {
             generate(strongBox = true)
-        } catch (e: StrongBoxUnavailableException) {
+        } catch (e: Exception) {
+            // StrongBox missing can surface as StrongBoxUnavailableException or a ProviderException.
             generate(strongBox = false)
         }
         // Refuse to continue if the OS silently gave us a software-only key.
