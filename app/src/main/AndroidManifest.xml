@@ -18,11 +18,33 @@
         android:memtagMode="sync"
         android:theme="@style/Theme.KeyBase">
 
+        <!-- Only the Android system can bind to this service (BIND_AUTOFILL_SERVICE). -->
+        <service
+            android:name=".autofill.KeyBaseAutofillService"
+            android:exported="true"
+            android:label="keyBase"
+            android:permission="android.permission.BIND_AUTOFILL_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.autofill.AutofillService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.autofill"
+                android:resource="@xml/autofill_service" />
+        </service>
+
+        <!-- Not exported: reachable only through the pending intents our own service hands to the system. -->
+        <activity
+            android:name=".autofill.AutofillAuthActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.KeyBase.Translucent" />
+
+        <!-- configChanges: rotating or resizing must not recreate the activity, which would drop the unlocked vault. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:excludeFromRecents="false"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|layoutDirection|locale|colorMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
