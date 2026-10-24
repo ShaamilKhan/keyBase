@@ -181,8 +181,10 @@ class MainActivity : FragmentActivity() {
                         locked = false
                         keyUri = null; keyName = null; backupUri = null
                     } else {
-                        // Same message for wrong key file / wrong password / tampering.
-                        error = "Couldn't unlock. Check your key file and password."
+                        // Wrong key file / password / tampering share one message; the error type
+                        // is appended so real crashes (e.g. out of memory) aren't hidden.
+                        val t = result.exceptionOrNull()
+                        error = "Couldn't unlock. Check your key file and password. (${t?.javaClass?.simpleName}: ${t?.message?.take(80)})"
                     }
                 }
             }
