@@ -1,0 +1,3 @@
+-dontwarn org.bouncycastle.**
+-keep class org.bouncycastle.crypto.generators.Argon2BytesGenerator { *; }
+-keep class org.bouncycastle.crypto.params.Argon2Parameters** { *; }
