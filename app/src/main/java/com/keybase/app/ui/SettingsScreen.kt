@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.keybase.app.crypto.Entropy
+import com.keybase.app.crypto.QuickUnlock
 
 private val LOCK_CHOICES = listOf(0 to "Immediately", 15 to "15 seconds", 60 to "1 minute", 300 to "5 minutes")
 private val THEME_CHOICES = listOf(0 to "System", 1 to "Light", 2 to "Dark")
@@ -21,27 +23,32 @@ fun SettingsScreen(
     autoLockSec: Int,
     quickEnabled: Boolean,
     quickPossible: Boolean,
+    quickDays: Int,
     allowCopy: Boolean,
     clipSec: Int,
     autofillOn: Boolean,
     keyFileName: String?,
     lastBackup: Long,
+    changesSinceBackup: Int,
     securityLabel: String?,
     version: String,
     onTheme: (Int) -> Unit,
     onAutoLock: (Int) -> Unit,
     onQuick: (Boolean) -> Unit,
+    onQuickDays: (Int) -> Unit,
     onAllowCopy: (Boolean) -> Unit,
     onClipSec: (Int) -> Unit,
     onAutofill: () -> Unit,
     onPickKeyFile: () -> Unit,
     onForgetKeyFile: () -> Unit,
     onBackup: () -> Unit,
+    onCheckBackup: () -> Unit,
     onChangePassword: (current: String, new: String, onError: (String) -> Unit) -> Unit,
     onLock: () -> Unit,
     onBack: () -> Unit,
 ) {
     var pwDialog by remember { mutableStateOf(false) }
+    var askQuick by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         TopBar("Settings", onBack)
@@ -80,10 +87,27 @@ fun SettingsScreen(
             Hairline()
             if (quickPossible) {
                 ToggleRow(
-                    "Fingerprint-only unlock", quickEnabled,
-                    "Opens the vault with just your fingerprint, no master password. Turns itself off after 7 days, or if a fingerprint is added.",
-                    onChange = onQuick,
+                    "Open with fingerprint only", quickEnabled,
+                    "Skips the master password and key file. Read the warning before turning this on.",
+                    onChange = { on -> if (on) askQuick = true else onQuick(false) },
                 )
+                if (quickEnabled) {
+                    var daysMenu by remember { mutableStateOf(false) }
+                    Box {
+                        NavRow(
+                            "Switch off after", "$quickDays ${if (quickDays == 1) "day" else "days"}",
+                            onClick = { daysMenu = true },
+                        )
+                        DropdownMenu(expanded = daysMenu, onDismissRequest = { daysMenu = false }) {
+                            QuickUnlock.DAY_CHOICES.forEach { d ->
+                                DropdownMenuItem(
+                                    text = { Text("$d ${if (d == 1) "day" else "days"}") },
+                                    onClick = { onQuickDays(d); daysMenu = false },
+                                )
+                            }
+                        }
+                    }
+                }
                 Hairline()
             }
             NavRow("Change master password", null, Icons.Filled.Password, onClick = { pwDialog = true })
@@ -138,11 +162,19 @@ fun SettingsScreen(
             SectionLabel("Backup")
             NavRow(
                 "Export encrypted backup",
-                if (lastBackup > 0) "Last backup ${formatDate(lastBackup)}" else "Never backed up",
+                when {
+                    lastBackup <= 0L -> "Never backed up"
+                    changesSinceBackup > 0 -> "Last backup ${formatDate(lastBackup)}. $changesSinceBackup change${if (changesSinceBackup == 1) "" else "s"} since."
+                    else -> "Last backup ${formatDate(lastBackup)}. Up to date."
+                },
                 Icons.Filled.Save, onClick = onBackup,
             )
+            Hairline()
+            NavRow("Check a backup file", "Make sure a backup opens before you need it", Icons.Filled.Verified, onClick = onCheckBackup)
             Text(
-                "Opens with your key file and master password on any phone. Keep it away from your key file.",
+                "A backup is a snapshot. To use it later: erase the vault (or install on a new phone), tap Restore backup on the " +
+                    "first screen, then choose the backup, the same key file and the master password you had when you exported it. " +
+                    "Keep it away from your key file.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 40.dp, bottom = 8.dp),
             )
@@ -151,6 +183,10 @@ fun SettingsScreen(
             SectionLabel("About")
             Spacer(Modifier.height(8.dp))
             SectionCard {
+                AsciiText(AsciiArt.NAME, 6f, MaterialTheme.colorScheme.onBackground, "keyBase")
+                Spacer(Modifier.height(4.dp))
+                AsciiText(AsciiArt.BY, 4f, MaterialTheme.colorScheme.secondary, "by Shaamil", bold = false)
+                Spacer(Modifier.height(14.dp))
                 InfoRow("Version", version)
                 InfoRow("Encryption", "AES-256-GCM")
                 InfoRow("Key derivation", "Argon2id, 128 MiB")
@@ -159,10 +195,23 @@ fun SettingsScreen(
                 InfoRow("Clipboard", if (allowCopy) "Cleared after ${clipSec}s" else "Passwords never copied")
                 InfoRow("Autofill", if (autofillOn) "On" else "Off")
             }
+            Spacer(Modifier.height(16.dp))
+            SectionCard {
+                Text("Developed by", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Shaamil Khan A", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                InfoRow("GitHub", "github.com/ShaamilKhan")
+                InfoRow("Instagram", "@afriafk")
+            }
             Spacer(Modifier.height(32.dp))
         }
     }
 
+    if (askQuick) FingerprintOnlyDisclaimer(
+        days = quickDays,
+        onConfirm = { askQuick = false; onQuick(true) },
+        onDismiss = { askQuick = false },
+    )
     if (pwDialog) ChangePasswordDialog(
         onSubmit = onChangePassword,
         onDone = { pwDialog = false },
@@ -188,7 +237,7 @@ private fun ChangePasswordDialog(
     var err by remember { mutableStateOf<String?>(null) }
     var working by remember { mutableStateOf(false) }
     val strength = rememberStrength(n1)
-    val ok = cur.isNotEmpty() && n1 == n2 && strength.bits >= MIN_MASTER_BITS && !working
+    val ok = cur.isNotEmpty() && n1 == n2 && strength.bits >= Entropy.MIN_MASTER_BITS && !working
 
     AlertDialog(
         onDismissRequest = { if (!working) onDone() },

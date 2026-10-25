@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 fun GeneratorScreen(ctx: Context, canCopy: Boolean, onCopy: (String) -> Unit, onBack: () -> Unit) {
     var last by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        TopBar("Generator", onBack)
+        TopBar("Password generator", onBack)
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),

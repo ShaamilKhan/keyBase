@@ -434,4 +434,131 @@ class VaultStoreTest {
         assertFalse(saltA.contentEquals(saltB))
         assertFalse(fileBytes("a.kbv").contentEquals(fileBytes("b.kbv")))
     }
+
+    // ---- erase check, backup check, folder creation ----------------------------------------
+
+    @Test fun verifyCredentialsAcceptsTheRightOnesAndOpensNothing() {
+        populated().lock()
+        val s = store()
+        s.verifyCredentials(keyfile, password, device)
+        assertFalse(s.isUnlocked)
+        assertTrue(s.entries.isEmpty())
+    }
+
+    @Test fun verifyCredentialsRejectsEveryWrongInputSoEraseStaysBlocked() {
+        populated().lock()
+        val s = store()
+        assertThrows(WrongCredentialsException::class.java) { s.verifyCredentials(keyfile, "wrong", device) }
+        assertThrows(WrongCredentialsException::class.java) { s.verifyCredentials(ByteArray(32) { 9 }, password, device) }
+        assertThrows(WrongCredentialsException::class.java) { s.verifyCredentials(keyfile, password, ByteArray(32) { 9 }) }
+        assertThrows(WrongCredentialsException::class.java) { s.verifyCredentials(keyfile, "", device) }
+        assertTrue(File(tmp.root, "vault.kbv").exists()) // checking never deletes anything
+    }
+
+    @Test fun verifyCredentialsDoesNotDisturbAnOpenSession() {
+        val s = populated()
+        s.verifyCredentials(keyfile, password, device)
+        assertTrue(s.isUnlocked)
+        assertEquals(2, s.entries.size)
+    }
+
+    @Test fun verifyPortableReportsCountsAndLeavesTheLiveVaultAlone() {
+        val s = populated()
+        val backup = s.exportPortable()
+        val liveBefore = fileBytes()
+        val other = store("other.kbv")
+        assertEquals(2 to 1, other.verifyPortable(backup, keyfile, password))
+        assertFalse(other.exists())
+        assertFalse(other.isUnlocked)
+        assertTrue(liveBefore.contentEquals(fileBytes()))
+    }
+
+    @Test fun verifyPortableRejectsWrongPasswordKeyFileAndTheLiveVaultFile() {
+        val s = populated()
+        val backup = s.exportPortable()
+        val other = store("other.kbv")
+        assertThrows(WrongCredentialsException::class.java) { other.verifyPortable(backup, keyfile, "wrong") }
+        assertThrows(WrongCredentialsException::class.java) { other.verifyPortable(backup, ByteArray(32) { 5 }, password) }
+        assertThrows(IllegalArgumentException::class.java) { other.verifyPortable(fileBytes(), keyfile, password) }
+    }
+
+    @Test fun aBackupMadeBeforeAPasswordChangeStillNeedsTheOldPassword() {
+        val s = populated()
+        val backup = s.exportPortable()
+        s.changePassword(keyfile, "a brand new passphrase", device)
+        val other = store("other.kbv")
+        other.verifyPortable(backup, keyfile, password) // the old password still opens the old backup
+        assertThrows(WrongCredentialsException::class.java) { other.verifyPortable(backup, keyfile, "a brand new passphrase") }
+    }
+
+    @Test fun aFreshBackupVerifiesWithTheOpenSessionsOwnKeys() {
+        val s = populated()
+        assertEquals(2 to 1, s.verifyOwnBackup(s.exportPortable()))
+    }
+
+    @Test fun verifyOwnBackupCatchesAnAlteredFileAndRefusesWhileLocked() {
+        val s = populated()
+        val backup = s.exportPortable()
+        val bad = backup.copyOf().also { it[backup.size - 3] = (it[backup.size - 3].toInt() xor 1).toByte() }
+        assertThrows(WrongCredentialsException::class.java) { s.verifyOwnBackup(bad) }
+        assertThrows(IllegalArgumentException::class.java) { s.verifyOwnBackup(fileBytes()) } // live vault is not a backup
+        s.lock()
+        assertThrows(IllegalStateException::class.java) { s.verifyOwnBackup(backup) }
+    }
+
+    @Test fun restoringWorksEvenWhenTheBackupPasswordIsWeak() {
+        // Restore never applies the strength gate: an old, short password must still open its own backup.
+        val s = store()
+        s.create(keyfile, "abc", device)
+        s.upsert(Entry(title = "x", password = "y"))
+        val backup = s.exportPortable()
+        val fresh = store("fresh.kbv")
+        fresh.create(keyfile, "abc", ByteArray(32) { 3 }, backup)
+        assertEquals("x", fresh.entries.single().title)
+    }
+
+    @Test fun hasReadableHeaderIsTrueOnlyForAFileThisVersionCanTryToOpen() {
+        val s = store()
+        assertFalse(s.hasReadableHeader()) // no file
+        s.create(keyfile, password, device)
+        assertTrue(s.hasReadableHeader())
+
+        File(tmp.root, "legacy.kbv").writeBytes("KBV1".toByteArray() + ByteArray(120))
+        assertFalse(store("legacy.kbv").hasReadableHeader())
+        File(tmp.root, "junk.kbv").writeBytes(ByteArray(300) { 7 })
+        assertFalse(store("junk.kbv").hasReadableHeader())
+        File(tmp.root, "tiny.kbv").writeBytes(ByteArray(5))
+        assertFalse(store("tiny.kbv").hasReadableHeader())
+    }
+
+    @Test fun anEmptyVaultIsBigEnoughToCountAsReadable() {
+        val s = store()
+        s.create(keyfile, password, device)
+        assertTrue(File(tmp.root, "vault.kbv").length() > 77)
+        assertTrue(s.hasReadableHeader())
+    }
+
+    @Test fun addGroupReturnsTheNewIdAndNullForBlankNames() {
+        val s = store()
+        s.create(keyfile, password, device)
+        val id = s.addGroup("  Banks  ", null)
+        assertEquals("Banks", s.groups.single { it.id == id }.name)
+        assertNull(s.addGroup("   ", null))
+        assertNull(s.addGroup("", null))
+        assertEquals(1, s.groups.size)
+        s.lock()
+        s.unlock(keyfile, password, device)
+        assertEquals("Banks", s.groups.single().name) // saved straight away
+    }
+
+    @Test fun aLoginCanBeFiledIntoAFolderCreatedWhileEditingIt() {
+        val s = store()
+        s.create(keyfile, password, device)
+        val id = s.addGroup("Streaming", null)!!
+        s.upsert(Entry(title = "Netflix", password = "pw", groupId = id))
+        s.lock()
+        s.unlock(keyfile, password, device)
+        assertEquals(id, s.entries.single().groupId)
+        assertEquals("Streaming", s.pathOf(s.entries.single().groupId))
+    }
 }

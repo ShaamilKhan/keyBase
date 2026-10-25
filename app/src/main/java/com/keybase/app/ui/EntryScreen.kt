@@ -27,6 +27,7 @@ fun EntryScreen(
     groups: List<Group>,
     pathOf: (String?) -> String,
     canCopyPassword: Boolean,
+    onCreateFolder: (name: String) -> String?,
     onCopyUser: (String) -> Unit,
     onCopyPassword: (String) -> Unit,
     onSave: (Entry) -> Unit,
@@ -41,6 +42,7 @@ fun EntryScreen(
     var revealPw by remember { mutableStateOf(false) }
     var editingPw by remember { mutableStateOf(isNew) }
     var folderMenu by remember { mutableStateOf(false) }
+    var newFolder by remember { mutableStateOf(false) }
     val dirty = e != initial
     val strength = rememberStrength(e.password)
     val flat = remember(groups.toList()) { flattenGroups(groups) }
@@ -133,6 +135,11 @@ fun EntryScreen(
                             onClick = { e = e.copy(groupId = g.id); folderMenu = false },
                         )
                     }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("New folder…", color = MaterialTheme.colorScheme.primary) },
+                        onClick = { folderMenu = false; newFolder = true },
+                    )
                 }
             }
 
@@ -170,6 +177,11 @@ fun EntryScreen(
         }
     }
 
+    if (newFolder) NameDialog(
+        title = "New folder", initial = "", confirm = "Create",
+        onDone = { name -> onCreateFolder(name)?.let { id -> e = e.copy(groupId = id) }; newFolder = false },
+        onDismiss = { newFolder = false },
+    )
     if (confirmDelete) ConfirmDialog(
         title = "Delete this login?", text = "This can't be undone.", confirm = "Delete", danger = true,
         onConfirm = { confirmDelete = false; onDelete() }, onDismiss = { confirmDelete = false },

@@ -44,7 +44,7 @@ class AutofillAuthActivity : FragmentActivity() {
     private fun fillOne(passId: AutofillId, userId: AutofillId?) {
         val store = Vault.store(this)
         val wanted = intent.getStringExtra(EXTRA_ENTRY)
-        val entry = if (store.isUnlocked) store.snapshot().firstOrNull { it.id == wanted } else null
+        val entry = if (Vault.isOpen(this)) store.snapshot().firstOrNull { it.id == wanted } else null
         if (entry == null) {
             cancel()
             return

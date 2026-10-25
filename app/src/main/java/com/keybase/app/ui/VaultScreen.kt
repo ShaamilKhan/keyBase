@@ -37,7 +37,7 @@ fun VaultScreen(
     onSettings: () -> Unit,
     onGenerator: () -> Unit,
     onLock: () -> Unit,
-    backupNag: Boolean,
+    backupNag: String?,
 ) {
     var q by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf(Sort.TITLE) }
@@ -93,6 +93,7 @@ fun VaultScreen(
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
+                IconButton(onClick = { newFolder = true }) { Icon(Icons.Filled.CreateNewFolder, "Create folder") }
                 if (here != null) {
                     Box {
                         IconButton(onClick = { folderMenu = true }) { Icon(Icons.Filled.MoreVert, "Folder options") }
@@ -132,7 +133,7 @@ fun VaultScreen(
                 }
             }
 
-            if (backupNag && !searching) {
+            if (backupNag != null && !searching) {
                 Spacer(Modifier.height(10.dp))
                 Surface(
                     shape = MaterialTheme.shapes.medium,
@@ -142,8 +143,7 @@ fun VaultScreen(
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Shield, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         Spacer(Modifier.width(12.dp))
-                        Text("No backup yet. If this phone is lost, your logins are gone. Open Settings to export one.",
-                            color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.bodyMedium)
+                        Text(backupNag, color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
@@ -152,14 +152,24 @@ fun VaultScreen(
             val empty = shown.isEmpty() && (searching || subfolders.isEmpty())
             if (empty) {
                 Box(Modifier.fillMaxSize().padding(bottom = 96.dp), contentAlignment = Alignment.Center) {
-                    Text(
-                        when {
-                            searching -> "No matches"
-                            entries.isEmpty() && here == null -> "Nothing here yet.\nTap + to add your first login."
-                            else -> "This folder is empty."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            when {
+                                searching -> "No matches"
+                                entries.isEmpty() && here == null -> "Nothing here yet.\nTap + to add your first login."
+                                else -> "This folder is empty."
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (!searching) {
+                            Spacer(Modifier.height(8.dp))
+                            TextButton(onClick = { newFolder = true }) {
+                                Icon(Icons.Filled.CreateNewFolder, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (here == null) "Create a folder" else "Create a folder in ${here.name}")
+                            }
+                        }
+                    }
                 }
             } else {
                 LazyColumn(contentPadding = PaddingValues(bottom = 112.dp)) {

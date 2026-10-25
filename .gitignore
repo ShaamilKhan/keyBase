@@ -8,3 +8,6 @@ local.properties
 *.keyfile
 captures/
 .claude/
+# Never commit a key file or an encrypted backup by accident.
+*.key
+*.kbv

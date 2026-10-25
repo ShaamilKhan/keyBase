@@ -15,6 +15,12 @@ data class Strength(val bits: Double, val label: String, val level: Int)
  * Call from a background thread: the first call loads the dictionaries.
  */
 object Entropy {
+    /**
+     * Smallest master password strength accepted when a vault is created or the password is changed.
+     * Restoring a backup is never gated on this, so an older, weaker password still opens its backup.
+     */
+    const val MIN_MASTER_BITS = 60.0
+
     private const val MAX_ANALYSED = 128
 
     @Volatile private var engine: Nbvcxz? = null

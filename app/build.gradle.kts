@@ -12,8 +12,8 @@ android {
         applicationId = "com.keybase.app"
         minSdk = 31 // Android 12 floor; Android 16 is the primary target
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
 
     // Release signing comes from CI secrets; without them the APK is debug-signed.

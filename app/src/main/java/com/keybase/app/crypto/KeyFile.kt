@@ -74,9 +74,24 @@ object KeyFile {
         runCatching { cr.releasePersistableUriPermission(Uri.parse(uriString), Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
+    /**
+     * Writes a fresh random key file. Refuses to touch a file that already has content: picking an existing
+     * key file in the "save as" dialog would otherwise overwrite it and lock you out of your vault for good.
+     */
     fun writeNew(cr: ContentResolver, uri: Uri) {
+        val existing = try {
+            cr.openInputStream(uri)?.use { it.read() } ?: -1
+        } catch (e: Exception) {
+            -1 // a brand-new file the provider cannot read yet counts as empty
+        }
+        if (existing != -1) {
+            throw KeyFileException(
+                "That file already has content, so keyBase did not change it. " +
+                    "To use an existing key file choose \"Use a file I already have\". To make a new one, pick a new file name."
+            )
+        }
         val bytes = VaultCrypto.randomBytes(NEW_FILE_BYTES)
-        val out = cr.openOutputStream(uri, "wt") ?: throw KeyFileException("Can't write the key file.")
+        val out = cr.openOutputStream(uri, "wt") ?: throw KeyFileException("Can't write the key file there.")
         out.use { it.write(bytes) }
         bytes.fill(0)
     }

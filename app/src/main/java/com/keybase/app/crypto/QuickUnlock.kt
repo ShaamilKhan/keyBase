@@ -6,6 +6,7 @@ import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricPrompt
 import androidx.fragment.app.FragmentActivity
+import com.keybase.app.data.Settings
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -22,18 +23,20 @@ object QuickUnlock {
     private const val ALIAS = "kb_quick_aes_v1"
     private const val FILE = "quick.bin"
     private const val IV_LEN = 12
-    const val MAX_AGE_MS = 7L * 24 * 3600 * 1000
+    private const val DAY_MS = 24L * 3600 * 1000
+    val DAY_CHOICES = listOf(1, 7, 30)
 
     private fun keystore() = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
 
     // noBackupFilesDir is excluded from backups and device transfer.
     private fun file(ctx: Context) = File(ctx.noBackupFilesDir, FILE)
 
-    /** True while fingerprint unlock is set up and younger than [MAX_AGE_MS]; older setups are wiped. */
+    /** True while fingerprint-only unlock is set up and younger than the chosen number of days; older setups are wiped. */
     fun isEnabled(ctx: Context): Boolean {
         val f = file(ctx)
         if (!f.exists()) return false
-        if (System.currentTimeMillis() - f.lastModified() > MAX_AGE_MS) { wipe(ctx); return false }
+        val days = Settings(ctx).quickDays.coerceIn(1, 30)
+        if (System.currentTimeMillis() - f.lastModified() > days * DAY_MS) { wipe(ctx); return false }
         return runCatching { keystore().containsAlias(ALIAS) }.getOrDefault(false)
     }
 

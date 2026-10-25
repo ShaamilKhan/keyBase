@@ -57,6 +57,23 @@ class VaultStore(private val file: File) {
         install(h, base, k, data)
     }
 
+    /**
+     * Checks credentials exactly like [unlock] but opens nothing, so the vault state is untouched.
+     * Used before destructive actions. Throws like [unlock] on a mismatch.
+     */
+    fun verifyCredentials(keyfileHash: ByteArray, password: String, deviceSecret: ByteArray) {
+        val blob = readFile()
+        val h = VaultCrypto.parseHeader(blob)
+        require(h.flags == VaultCrypto.FLAG_DEVICE_BOUND) { "Unexpected vault type" }
+        val base = VaultCrypto.deriveBase(password, keyfileHash, h)
+        val k = VaultCrypto.mixDevice(base, deviceSecret)
+        try {
+            VaultCrypto.open(k, blob).fill(0)
+        } finally {
+            base.fill(0); k.fill(0)
+        }
+    }
+
     /** Fingerprint-only unlock: [payload] is what [keysPayload] returned earlier. */
     fun unlockWithKeys(payload: ByteArray) {
         require(payload.size == 64) { "Bad payload" }
@@ -136,6 +153,47 @@ class VaultStore(private val file: File) {
         }
     }
 
+    /**
+     * Checks a freshly written backup with the keys of the open session (no password needed) and returns
+     * (logins, folders). Proves the file on disk decrypts, which is all a backup has to do.
+     */
+    fun verifyOwnBackup(blob: ByteArray): Pair<Int, Int> {
+        val base = baseKey ?: throw IllegalStateException("Vault is locked")
+        val h = VaultCrypto.parseHeader(blob)
+        require(h.flags == VaultCrypto.FLAG_PORTABLE) { "Not a backup file" }
+        val data = openData(base, blob)
+        return data.entries.size to data.groups.size
+    }
+
+    /**
+     * Opens a backup without touching the live vault and returns (logins, folders). Throws the same
+     * exceptions as [create] does when restoring, so a user can check a backup before they need it.
+     */
+    fun verifyPortable(blob: ByteArray, keyfileHash: ByteArray, password: String): Pair<Int, Int> {
+        val data = openPortable(blob, keyfileHash, password)
+        return data.entries.size to data.groups.size
+    }
+
+    /**
+     * False when the vault file can never be opened by this version (an early test format, damage, or too
+     * small). Erasing such a vault does not need credentials, since nobody can read it anyway.
+     */
+    fun hasReadableHeader(): Boolean = runCatching {
+        if (!file.exists()) return@runCatching false
+        val head = file.inputStream().use { s ->
+            val buf = ByteArray(128)
+            var n = 0
+            while (n < buf.size) {
+                val r = s.read(buf, n, buf.size - n)
+                if (r < 0) break
+                n += r
+            }
+            buf.copyOf(n)
+        }
+        VaultCrypto.parseHeader(head)
+        true
+    }.getOrDefault(false)
+
     private fun openPortable(blob: ByteArray, keyfileHash: ByteArray, password: String): VaultData {
         val h = VaultCrypto.parseHeader(blob)
         require(h.flags == VaultCrypto.FLAG_PORTABLE) { "Not a backup file" }
@@ -212,11 +270,14 @@ class VaultStore(private val file: File) {
 
     // ---- folders ---------------------------------------------------------------------------
 
-    fun addGroup(name: String, parentId: String?) {
+    /** Returns the new folder's id, or null if the name was blank. */
+    fun addGroup(name: String, parentId: String?): String? {
         val n = name.trim().take(60)
-        if (n.isEmpty()) return
-        groups.add(Group(name = n, parentId = parentId))
+        if (n.isEmpty()) return null
+        val g = Group(name = n, parentId = parentId)
+        groups.add(g)
         save()
+        return g.id
     }
 
     fun renameGroup(id: String, name: String) {

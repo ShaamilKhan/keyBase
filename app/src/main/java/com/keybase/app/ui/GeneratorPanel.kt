@@ -35,7 +35,7 @@ fun GeneratorPanel(
 
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Generator", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text("Password generator", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             FilledTonalButton(
                 onClick = { run() },
                 shape = MaterialTheme.shapes.small,
@@ -45,7 +45,7 @@ fun GeneratorPanel(
                 ),
             ) {
                 Icon(Icons.Filled.Refresh, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp)); Text("Generate")
+                Spacer(Modifier.width(6.dp)); Text("Generate password")
             }
         }
 

@@ -54,9 +54,11 @@ class EntropyTest {
         Entropy.estimate("\u0000￿😀 \n\t")
     }
 
-    @Test fun masterPasswordGateAcceptsAGoodPassphraseAndRejectsAWeakOne() {
-        // The lock screen requires at least 50 bits to create a vault.
-        assertTrue(Entropy.estimate("password123").bits < 50)
-        assertTrue(Entropy.estimate(PasswordTools.generateChars(GenOptions(length = 16))).bits >= 50)
+    @Test fun masterPasswordGateAcceptsAGoodPasswordAndRejectsAWeakOne() {
+        assertEquals(60.0, Entropy.MIN_MASTER_BITS, 0.0)
+        assertTrue(Entropy.estimate("password123").bits < Entropy.MIN_MASTER_BITS)
+        assertTrue(Entropy.estimate("Summer2024!").bits < Entropy.MIN_MASTER_BITS)
+        // A 24-character generated password clears the gate comfortably.
+        assertTrue(Entropy.estimate(PasswordTools.generateChars(GenOptions(length = 24))).bits >= Entropy.MIN_MASTER_BITS)
     }
 }

@@ -41,7 +41,8 @@ class KeyBaseAutofillService : AutofillService() {
         if (form.webDomain == null && form.pkg == packageName) return null // never fill our own screens
 
         val store = Vault.store(this)
-        if (store.isUnlocked) {
+        // isOpen also checks the background deadline on the real clock, which timers can miss in deep sleep.
+        if (Vault.isOpen(this)) {
             val matches = store.snapshot()
                 .filter { AutofillMatcher.matches(it, form.pkg, form.webDomain, form.webScheme) }
                 .take(MAX_MATCHES)
