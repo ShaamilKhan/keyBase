@@ -1,5 +1,6 @@
 package com.keybase.app.ui
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,74 +8,92 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Monospace block of pre-rendered ASCII lettering. [glyphDp] is the width-ish size of one character in dp,
- * so the art keeps its size when the user changes the system font scale.
+ * ASCII lettering drawn as lines on a fixed grid. It is drawn, not typed, so it looks the same on every phone:
+ * a font would change the width and height of every character from one device to the next and distort the art.
  */
 @Composable
-fun AsciiText(
+fun AsciiLettering(
     lines: List<String>,
-    glyphDp: Float,
+    cellWidth: Dp,
     color: Color,
     description: String,
     modifier: Modifier = Modifier,
-    bold: Boolean = true,
+    minStroke: Dp = 1.1.dp,
 ) {
-    val size = with(LocalDensity.current) { glyphDp.dp.toSp() }
-    Text(
-        text = lines.joinToString("\n"),
-        color = color,
-        softWrap = false,
-        maxLines = lines.size,
-        style = TextStyle(
-            fontFamily = FontFamily.Monospace,
-            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-            fontSize = size,
-            lineHeight = size * 1.08f,
-            letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
-            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
-        ),
-        modifier = modifier.clearAndSetSemantics { contentDescription = description },
-    )
+    val cols = remember(lines) { lines.maxOf { it.length } }
+    val cellHeight = cellWidth * AsciiGlyphs.CELL_ASPECT
+    val stroke = maxOf(minStroke.value, cellWidth.value * 0.17f)
+    Canvas(
+        modifier
+            .size(cellWidth * cols, cellHeight * lines.size)
+            .clearAndSetSemantics { contentDescription = description }
+    ) {
+        val cw = cellWidth.toPx()
+        val chPx = cellHeight.toPx()
+        val style = Stroke(width = stroke.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        lines.forEachIndexed { row, line ->
+            line.forEachIndexed { col, c ->
+                val polylines = AsciiGlyphs.STROKES[c] ?: return@forEachIndexed
+                for (pts in polylines) {
+                    val path = Path()
+                    var i = 0
+                    while (i + 1 < pts.size) {
+                        val x = (col + pts[i]) * cw
+                        val y = (row + pts[i + 1]) * chPx
+                        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                        i += 2
+                    }
+                    drawPath(path, color, style = style)
+                }
+            }
+        }
+    }
 }
 
-/** The lock, the app name in italic ASCII lettering next to it, and "by shaamil" underneath. */
+/** "keybase" with "by shaamil" under it in blue, sized to fit [maxWidth] (never wider, never above [maxCell] per character). */
+@Composable
+fun BrandLettering(maxWidth: Dp, maxCell: Dp = 8.5.dp, byShare: Float = 0.75f) {
+    val nameCols = remember { AsciiArt.NAME.maxOf { it.length } }
+    val byCols = remember { AsciiArt.BY.maxOf { it.length } }
+    val nameCell = minOf(maxWidth.value / nameCols, maxCell.value).coerceAtLeast(2f)
+    // The tagline is a fixed share of the name's width, so the two always keep the same proportions.
+    val byCell = nameCell * nameCols * byShare / byCols
+    Column {
+        AsciiLettering(AsciiArt.NAME, nameCell.dp, MaterialTheme.colorScheme.onBackground, "keybase")
+        Spacer(Modifier.height(6.dp))
+        AsciiLettering(AsciiArt.BY, byCell.dp, MaterialTheme.colorScheme.secondary, "by shaamil", minStroke = 0.9.dp)
+    }
+}
+
+/** The lock tile with the lettering next to it. */
 @Composable
 fun BrandHeader(availableWidth: Dp) {
-    val iconSize = 56f
-    val gap = 14f
-    // A monospace character is about 0.6 of its size wide; leave a little margin.
-    val fit = (availableWidth.value - iconSize - gap) / (AsciiArt.NAME_COLS * 0.62f)
-    val nameGlyph = minOf(9f, fit).coerceAtLeast(4f)
-    val byGlyph = nameGlyph * 0.66f
+    val tile = 52.dp
+    val gap = 12.dp
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(iconSize.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.primaryContainer),
+            Modifier.size(tile).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(28.dp))
+            Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
         }
-        Spacer(Modifier.width(gap.dp))
-        Column {
-            AsciiText(AsciiArt.NAME, nameGlyph, MaterialTheme.colorScheme.onBackground, "keyBase")
-            Spacer(Modifier.height(4.dp))
-            AsciiText(AsciiArt.BY, byGlyph, MaterialTheme.colorScheme.secondary, "by Shaamil", bold = false)
-        }
+        Spacer(Modifier.width(gap))
+        BrandLettering(availableWidth - tile - gap)
     }
 }

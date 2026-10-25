@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.keybase.app.crypto.Entropy
 import com.keybase.app.crypto.Strength
@@ -47,6 +49,53 @@ fun TopBar(title: String, onBack: (() -> Unit)?, actions: @Composable RowScope.(
         )
         actions()
     }
+}
+
+/**
+ * Title row for the vault and its folders: [onBack] (if any) on the left, a title with a one-line subtitle that
+ * takes the remaining width, and [actions] on the right. Always 56dp tall, so the title and the icons share
+ * one centre line on every screen size, and a long folder name shortens with "…" instead of pushing icons away.
+ */
+@Composable
+fun ScreenHeader(
+    title: String,
+    subtitle: String?,
+    onBack: (() -> Unit)?,
+    backDescription: String = "Back",
+    actions: @Composable RowScope.() -> Unit,
+) {
+    // heightIn, not height: with a large system text size the title and subtitle need more than 60dp.
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) {
+            // The arrow's glyph sits 12dp inside its touch area; bleed that margin so the glyph lines up with the screen edge.
+            IconButton(onClick = onBack, modifier = Modifier.bleed(start = 12.dp)) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, backDescription)
+            }
+        }
+        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(title, style = MaterialTheme.typography.headlineMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (subtitle != null) {
+                Text(
+                    subtitle, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        // Same for the last icon on the right.
+        Row(Modifier.bleed(end = 12.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
+    }
+}
+
+/**
+ * Lets a child's empty touch margin hang out into the padding: it reports a smaller size ([start]/[end] less) and
+ * is drawn shifted, so neighbours get the room back and the visible glyph lines up with the content edge.
+ */
+private fun Modifier.bleed(start: Dp = 0.dp, end: Dp = 0.dp): Modifier = layout { measurable, constraints ->
+    val s = start.roundToPx()
+    val e = end.roundToPx()
+    val placeable = measurable.measure(constraints)
+    layout((placeable.width - s - e).coerceAtLeast(0), placeable.height) { placeable.place(-s, 0) }
 }
 
 @Composable

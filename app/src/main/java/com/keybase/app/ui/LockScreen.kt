@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.keybase.app.crypto.Entropy
 import kotlinx.coroutines.delay
@@ -38,6 +39,7 @@ fun LockScreen(
     lockedUntil: Long,
     restoreName: String?,
     onPickKeyFile: () -> Unit,
+    onForgetKeyFile: () -> Unit,
     onCreateKeyFile: () -> Unit,
     onPickBackup: () -> Unit,
     onClearBackup: () -> Unit,
@@ -85,7 +87,7 @@ fun LockScreen(
                     },
                     style = MaterialTheme.typography.headlineMedium,
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     when {
                         creating -> "Choose a key file, set a master password, and everything is encrypted on this phone."
@@ -123,7 +125,15 @@ fun LockScreen(
 
                 // 2. Key file
                 if (keyFileName != null) {
-                    FileRow(Icons.Filled.Key, "Key file", keyFileName, onPickKeyFile)
+                    FileRow(
+                        Icons.Filled.Key, "Key file", keyFileName,
+                        onChange = onPickKeyFile,
+                        onRemove = onForgetKeyFile,
+                        maxNameLines = 2,
+                    )
+                    if (creating) {
+                        TextButton(onClick = onCreateKeyFile, modifier = Modifier.fillMaxWidth()) { Text("Create a new key file instead") }
+                    }
                 } else if (creating) {
                     GhostButton("Create a new key file (recommended)", onCreateKeyFile, icon = Icons.Filled.Key)
                     Text(
@@ -234,20 +244,32 @@ fun LockScreen(
 }
 
 @Composable
-private fun FileRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, name: String, onChange: () -> Unit) {
+private fun FileRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    name: String,
+    onChange: () -> Unit,
+    onRemove: (() -> Unit)? = null,
+    maxNameLines: Int = 1,
+) {
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
     ) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(name, maxLines = 1, style = MaterialTheme.typography.bodyLarge)
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(name, maxLines = maxNameLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                }
             }
-            TextButton(onClick = onChange) { Text("Change") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (onRemove != null) TextButton(onClick = onRemove) { Text("Remove", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = onChange) { Text("Change") }
+            }
         }
     }
 }

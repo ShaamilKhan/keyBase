@@ -44,7 +44,6 @@ import com.keybase.app.data.Vault
 import com.keybase.app.data.VaultStore
 import com.keybase.app.ui.CheckBackupDialog
 import com.keybase.app.ui.EntryScreen
-import com.keybase.app.ui.GeneratorScreen
 import com.keybase.app.ui.KeyBaseTheme
 import com.keybase.app.ui.LockScreen
 import com.keybase.app.ui.SettingsScreen
@@ -63,7 +62,6 @@ private const val BACKUP_REMINDER_CHANGES = 3
 private sealed interface Screen {
     data object Home : Screen
     data object Prefs : Screen
-    data object Gen : Screen
     data class Editor(val entry: Entry, val isNew: Boolean) : Screen
 }
 
@@ -598,6 +596,7 @@ class MainActivity : FragmentActivity() {
                 lockedUntil = lockedUntil,
                 restoreName = backupUri?.let { KeyFile.displayName(contentResolver, it) ?: "backup file" },
                 onPickKeyFile = { holdLock = true; pickKey.launch(Unit) },
+                onForgetKeyFile = { forgetKeyFile() },
                 onCreateKeyFile = { holdLock = true; createKey.launch("keybase.key") },
                 onPickBackup = { holdLock = true; pickBackup.launch(arrayOf("*/*")) },
                 onClearBackup = { backupUri = null; error = null },
@@ -625,7 +624,6 @@ class MainActivity : FragmentActivity() {
                     },
                     onToggleFav = { store.toggleFavorite(it); noteChange() },
                     onSettings = { screen = Screen.Prefs },
-                    onGenerator = { screen = Screen.Gen },
                     onLock = ::lockNow,
                     backupNag = when {
                         store.entries.isEmpty() -> null
@@ -647,12 +645,6 @@ class MainActivity : FragmentActivity() {
                     onCopyPassword = { if (allowCopy) copyToClipboard("Password", it) },
                     onSave = { store.upsert(it); noteChange(); screen = Screen.Home },
                     onDelete = { store.delete(s.entry.id); noteChange(); screen = Screen.Home },
-                    onBack = { screen = Screen.Home },
-                )
-                Screen.Gen -> GeneratorScreen(
-                    ctx = this@MainActivity,
-                    canCopy = allowCopy,
-                    onCopy = { copyToClipboard("Password", it) },
                     onBack = { screen = Screen.Home },
                 )
                 Screen.Prefs -> SettingsScreen(

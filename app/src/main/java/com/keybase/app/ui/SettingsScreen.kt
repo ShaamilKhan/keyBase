@@ -183,9 +183,9 @@ fun SettingsScreen(
             SectionLabel("About")
             Spacer(Modifier.height(8.dp))
             SectionCard {
-                AsciiText(AsciiArt.NAME, 6f, MaterialTheme.colorScheme.onBackground, "keyBase")
-                Spacer(Modifier.height(4.dp))
-                AsciiText(AsciiArt.BY, 4f, MaterialTheme.colorScheme.secondary, "by Shaamil", bold = false)
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    BrandLettering(maxWidth, maxCell = 6.dp)
+                }
                 Spacer(Modifier.height(14.dp))
                 InfoRow("Version", version)
                 InfoRow("Encryption", "AES-256-GCM")

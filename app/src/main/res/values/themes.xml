@@ -6,6 +6,9 @@
         <item name="android:windowBackground">@color/window_bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <!-- Android 12+ splash screen: the app icon (blue key) on black, whatever the in-app theme is. -->
+        <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
     </style>
     <!-- Invisible host for the fingerprint prompt shown over another app during autofill. -->
     <style name="Theme.KeyBase.Translucent" parent="@android:style/Theme.DeviceDefault.DayNight">

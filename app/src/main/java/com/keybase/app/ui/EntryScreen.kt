@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -14,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.keybase.app.crypto.GenOptions
+import com.keybase.app.crypto.PasswordTools
 import com.keybase.app.data.Entry
 import com.keybase.app.data.Group
 import com.keybase.app.data.SiteRules
@@ -104,7 +107,23 @@ fun EntryScreen(
             if (e.password.isNotEmpty()) StrengthMeter(strength)
 
             if (editingPw) {
-                GeneratorPanel(ctx, e.url, onGenerated = { e = e.copy(password = it) })
+                // One tap makes a strong password; if the site has published rules for its address, they are followed.
+                val site = remember(e.url) { SiteRules.lookup(ctx, e.url) }
+                GhostButton(
+                    "Generate password",
+                    {
+                        val p = PasswordTools.generate(ctx, GenOptions(), site?.second)
+                        if (p.isNotEmpty()) e = e.copy(password = p)
+                    },
+                    icon = Icons.Filled.Refresh,
+                )
+                if (site != null) {
+                    Text(
+                        "Follows ${site.first}'s rules: ${SiteRules.describe(site.second)}.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             KField(

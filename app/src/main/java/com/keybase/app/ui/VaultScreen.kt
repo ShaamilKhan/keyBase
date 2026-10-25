@@ -35,7 +35,6 @@ fun VaultScreen(
     onDeleteGroup: (String) -> Unit,
     onToggleFav: (String) -> Unit,
     onSettings: () -> Unit,
-    onGenerator: () -> Unit,
     onLock: () -> Unit,
     backupNag: String?,
 ) {
@@ -78,21 +77,13 @@ fun VaultScreen(
         },
     ) { inner ->
         Column(Modifier.fillMaxSize().padding(inner).padding(horizontal = 24.dp)) {
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (here != null) {
-                    IconButton(onClick = { onGroupChange(here.parentId) }, modifier = Modifier.offset(x = (-12).dp)) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Up one folder")
-                    }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(here?.name ?: "Vault", style = MaterialTheme.typography.headlineLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        if (here == null) "${entries.size} logins" else pathOf(currentGroup),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            // One fixed-height header row: the title block takes what the icons leave, so nothing wraps or drifts.
+            ScreenHeader(
+                title = here?.name ?: "Vault",
+                subtitle = if (here == null) "${entries.size} ${if (entries.size == 1) "login" else "logins"}" else pathOf(currentGroup),
+                onBack = here?.let { { onGroupChange(it.parentId) } },
+                backDescription = "Up one folder",
+            ) {
                 IconButton(onClick = { newFolder = true }) { Icon(Icons.Filled.CreateNewFolder, "Create folder") }
                 if (here != null) {
                     Box {
@@ -103,7 +94,6 @@ fun VaultScreen(
                         }
                     }
                 } else {
-                    IconButton(onClick = onGenerator) { Icon(Icons.Filled.AutoAwesome, "Password generator") }
                     IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings") }
                     IconButton(onClick = onLock) { Icon(Icons.Filled.Lock, "Lock now") }
                 }
