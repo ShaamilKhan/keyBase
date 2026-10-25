@@ -17,7 +17,7 @@ import javax.crypto.spec.GCMParameterSpec
 /**
  * Optional fingerprint-only unlock. The vault keys are encrypted with a hardware key that needs
  * a fresh strong-biometric check for every decryption, and that key is destroyed as soon as a
- * new fingerprint is enrolled. Off by default; expires after [MAX_AGE_MS].
+ * new fingerprint is enrolled. Off by default; expires after the number of days chosen in Settings.
  */
 object QuickUnlock {
     private const val ALIAS = "kb_quick_aes_v1"

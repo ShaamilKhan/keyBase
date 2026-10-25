@@ -31,7 +31,17 @@ jobs:
           gradle-version: 8.11.1
 
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:testDebugUnitTest --no-daemon --console=plain 2>&1 | tee "$RUNNER_TEMP/test.log"
+
+      # Puts the cause of a failure into the run's public annotations, so it can be read without a login.
+      - name: Summarise failure
+        if: failure()
+        run: |
+          f="$RUNNER_TEMP/test.log"
+          msg=$( { grep -E '^e: |error:' "$f" | head -25; grep -E -A3 ' FAILED$' "$f" | head -40; grep -E -A6 'What went wrong' "$f" | head -12; } | cut -c1-260 | tr -d '\r' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Test job failed::${msg:0:3600}"
 
       - name: Keep the test report
         if: always()
@@ -73,7 +83,16 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle :app:assembleRelease --no-daemon
+        run: |
+          set -o pipefail
+          gradle :app:assembleRelease --no-daemon --console=plain 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Summarise failure
+        if: failure()
+        run: |
+          f="$RUNNER_TEMP/build.log"
+          msg=$( { grep -E '^e: |error:|AAPT' "$f" | head -30; grep -E -A6 'What went wrong' "$f" | head -12; } | cut -c1-260 | tr -d '\r' | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Build failed::${msg:0:3600}"
 
       - name: Remove keystore
         if: always()

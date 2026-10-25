@@ -29,7 +29,7 @@ object Vault {
     @Volatile private var deadline = 0L
 
     private val handler = Handler(Looper.getMainLooper())
-    private val lockRun = Runnable { if (!uiActive) app?.let(::lockAll) }
+    private val lockRun = Runnable { if (!uiActive) app?.let { lockAll(it) } }
 
     fun store(ctx: Context): VaultStore {
         val a = ctx.applicationContext
@@ -97,6 +97,6 @@ object Vault {
 
     /** Locks right away when only a background fill had the vault open. */
     fun lockNowIfBackground() {
-        if (!uiActive) app?.let(::lockAll)
+        if (!uiActive) app?.let { lockAll(it) }
     }
 }

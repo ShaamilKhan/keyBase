@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.unit.dp
 
 /**
  * Erasing a vault needs the master password (and the key file and a fingerprint), so a stranger holding the
